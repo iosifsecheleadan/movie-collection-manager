@@ -33,6 +33,6 @@ add_executable(movieDB
         project/test/cpp/repo/TestDynamicVector.cpp project/test/cpp/repo/TestDynamicVector.h project/test/cpp/repo/TestRepository.cpp project/test/cpp/repo/TestRepository.h
         project/test/cpp/ctrl/TestController.cpp project/test/cpp/ctrl/TestController.h project/test/cpp/ctrl/TestAdministrator.cpp project/test/cpp/ctrl/TestAdministrator.h
         project/test/cpp/repo/TestStlVector.cpp project/test/cpp/repo/TestStlVector.h
-        project/test/cpp/domain/validator/TestMovieValidator.cpp project/test/cpp/domain/validator/TestMovieValidator.h project/main/cpp/ui/MainWindow.h)
+        project/test/cpp/domain/validator/TestMovieValidator.cpp project/test/cpp/domain/validator/TestMovieValidator.h project/main/cpp/ui/MainWindow.h project/main/cpp/ctrl/UndoRedoController.h)
 
 target_link_libraries(movieDB PRIVATE Qt5::Widgets)

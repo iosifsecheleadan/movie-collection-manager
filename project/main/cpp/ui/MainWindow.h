@@ -15,10 +15,12 @@
 #include <QtCore/QStringListModel>
 #include <QtWidgets/QMessageBox>
 #include <project/main/cpp/domain/validator/ValidatorException.h>
+#include <QtWidgets/QShortcut>
 
 #include "project/main/cpp/domain/entity/Movie.h"
 #include "../ctrl/Administrator.h"
 #include "UserInterfaceException.h"
+#include "project/main/cpp/ctrl/UndoRedoController.h"
 
 class MainWindow : public QMainWindow{
     Q_OBJECT
@@ -27,6 +29,7 @@ private:
 
     Controller<Movie>* user;
     Administrator* admin;
+    UndoRedoController<Movie> *undoRedo;
     std::string fileLocation;
 
     QWidget* main;
@@ -43,6 +46,11 @@ private:
     QPushButton* adminOpenHTML;
     QPushButton* adminOpenCSV;
     QPushButton* watchTrailer;
+
+    QPushButton* adminUndo;
+    QPushButton* adminRedo;
+    QShortcut* ctrlZ;
+    QShortcut* ctrlY;
 
     QLabel* watchListLabel;
     QListView* watchList;
@@ -105,6 +113,7 @@ private:
 
     void setUpAdmin() {
         this->dataBaseLabel = new QLabel("Movie Data Base");
+
         this->dataBaseList = new QListView();
         this->dataBaseList->setEditTriggers(QAbstractItemView::NoEditTriggers);
         this->addMovieEdit = new QLineEdit("Input New Movie data");
@@ -133,6 +142,20 @@ private:
         this->watchTrailer->setToolTip("Open Trailer of Selected Movie in new Tab");
         connect(watchTrailer, SIGNAL(released()), this, SLOT(watchSelectedTrailer()));
 
+        this->adminUndo = new QPushButton("UNDO");
+        this->adminUndo->setToolTip("Undo Previous Change made to Data Base");
+        connect(adminUndo, SIGNAL(released()), this, SLOT(undo()));
+
+        this->ctrlZ = new QShortcut(QKeySequence("Ctrl+Z"), this);
+        connect(ctrlZ, SIGNAL(activated()), this, SLOT(undo()));
+
+        this->adminRedo = new QPushButton("REDO");
+        this->adminRedo->setToolTip("Redo Previous Undo made to Data Base");
+        connect(adminRedo, SIGNAL(released()), this, SLOT(redo()));
+
+        this->ctrlY = new QShortcut(QKeySequence("Ctrl+Y"), this);
+        connect(ctrlY, SIGNAL(activated()), this, SLOT(redo()));
+
         this->gridLayout->addWidget(this->dataBaseLabel, 0, 0, 1, 3);
         this->gridLayout->addWidget(this->dataBaseList, 1, 0, 1, 3);
 
@@ -145,6 +168,9 @@ private:
         this->gridLayout->addWidget(this->updateButton, 3, 2);
 
         this->gridLayout->addWidget(this->addMovieEdit, 4, 0, 1, 3);
+
+        this->gridLayout->addWidget(this->adminUndo, 5, 0);
+        this->gridLayout->addWidget(this->adminRedo, 5, 1);
     }
 
     //                              LOAD AND SAVE FILES
@@ -261,6 +287,7 @@ private slots:
         std::string string = this->addMovieEdit->text().toStdString();
         try { Movie* movie = new Movie(string);
             this->admin->add(*movie);
+            this->undoRedo->addOperation("add", *movie);
             this->refreshDataBase();
         } catch (MainException& exception) { this->errorMessage(exception.what()); return;}
     }
@@ -273,6 +300,7 @@ private slots:
         std::string data = index.data().toString().toStdString();
         try { Movie *movie = new Movie(data);
             this->admin->remove(*movie);
+            this->undoRedo->addOperation("remove", *movie);
             this->refreshDataBase();
         } catch (MainException& exception) { this->errorMessage(exception.what()); return; }
     }
@@ -289,11 +317,11 @@ private slots:
         try { Movie* newMovie = new Movie(string);
             Movie* selected = new Movie(data);
             this->admin->update(*selected, *newMovie);
+            this->undoRedo->addOperation("update old", *selected);
+            this->undoRedo->addOperation("update new", *newMovie);
             this->refreshDataBase();
-        } catch (MainException& exception) { this->errorMessage(exception.what());
-        }
+        } catch (MainException& exception) { this->errorMessage(exception.what()); }
     }
-
 
     void openUserCSV() {
         this->saveFiles();
@@ -370,11 +398,41 @@ private slots:
         return messageBox.exec();
     }
 
+    void undo() {
+        try {
+            auto operation = this->undoRedo->undo();
+            if (operation.first == "add") {
+                this->admin->remove(operation.second);
+            } else if (operation.first == "remove") {
+                this->admin->add(operation.second);
+            } else if (operation.first.rfind("update", 0) == 0) {
+                auto nextOperation = this->undoRedo->undo();
+                this->admin->update(operation.second, nextOperation.second);
+            } else { throw MainException("Unknown Operation"); }
+            this->refreshDataBase();
+        } catch (MainException& ex) { this->errorMessage(ex.what()); }
+    }
+
+    void redo() {
+        try {
+            auto operation = this->undoRedo->redo();
+            if (operation.first == "add") {
+                this->admin->add(operation.second);
+            } else if (operation.first == "remove") {
+                this->admin->remove(operation.second);
+            } else if(operation.first.rfind("update", 0) == 0) {
+                auto nextOperation = this->undoRedo->redo();
+                this->admin->update(operation.second, nextOperation.second);
+            } else { throw MainException("Unknown Operation"); }
+            this->refreshDataBase();
+        } catch (MainException& ex) { this->errorMessage(ex.what()); }
+    }
 
 public:
-    MainWindow(Controller<Movie>* administrator, Controller<Movie>* user, std::string fileLocation) {
+    MainWindow(Controller<Movie>* administrator, Controller<Movie>* user, UndoRedoController<Movie>* undoRedo, std::string fileLocation) {
         this->admin = (Administrator *) administrator;
         this->user = user;
+        this->undoRedo = undoRedo;
         this->fileLocation = std::move(fileLocation);
 
         this->setUp();

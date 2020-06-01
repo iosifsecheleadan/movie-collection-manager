@@ -1,6 +1,6 @@
 #include <QtWidgets/QApplication>
-#include <QtWidgets/QMainWindow>
 #include <project/main/cpp/ui/MainWindow.h>
+#include <project/main/cpp/ctrl/UndoRedoController.h>
 
 #include "../domain/entity/Movie.h"
 #include "../domain/validator/Validator.h"
@@ -25,27 +25,38 @@ void run();
 
 int runQT(int argc, char *argv[]);
 
+void test();
+
 int main(int argc, char *argv[]) {
     // testAll();
     // run();
+    //test();
     return runQT(argc, argv);
 
     return 0;
 }
 
+void test() {
+}
+
+/**
+ * Run the GUI program
+ */
 int runQT(int argc, char *argv[]) {
     QApplication application(argc, argv);
-
 
     Validator<Movie>* validator = new MovieValidator();
 
     Repository<Movie>* dataBase = new StlVector<Movie>();
     Repository<Movie>* watchList = new StlVector<Movie>();
 
+    UndoRedoController<Movie>* undoRedo = new UndoRedoController<Movie>();
+
     Controller<Movie>* admin = new Administrator(validator, dataBase);
     Controller<Movie>* user = new Controller<Movie>(validator, watchList);
 
-    MainWindow* window = new MainWindow(admin, user,
+
+    MainWindow* window = new MainWindow(admin, user, undoRedo,
                                         "/home/sechelea/Documents/programming/projects/C++/oopII/movieDB/project/main/resources");
     window->run();
 
@@ -53,7 +64,7 @@ int runQT(int argc, char *argv[]) {
 }
 
 /**
- * Run the program
+ * Run the console program
  */
 void run() {
     // Repository<Movie>* dataBase = new DynamicVector<Movie>();
